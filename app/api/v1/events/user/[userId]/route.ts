@@ -8,28 +8,22 @@ export async function GET(
   const encoder = new TextEncoder();
   const userId = params.userId;
 
-  // Verify user has payments
-  const userPayments = await prisma.payment.findMany({
-    where: { userId },
-    select: {
-      id: true,
-      amount: true,
-      destCurrency: true,
-      status: true,
-      createdAt: true,
-    },
-    orderBy: { createdAt: 'desc' },
-  });
-
   // Create readable stream for SSE
   const stream = new ReadableStream({
     async start(controller) {
       // Fetch all events for all user's payments
+      const userPayments = await prisma.payment.findMany({
+        where: { userId },
+        select: { id: true },
+        orderBy: { createdAt: 'desc' },
+      });
+
+      const paymentIds = userPayments.map(p => p.id);
+
+      // Get initial events
       const allEvents = await prisma.event.findMany({
         where: {
-          paymentId: {
-            in: userPayments.map(p => p.id),
-          },
+          paymentId: { in: paymentIds },
         },
         include: {
           payment: {
@@ -42,7 +36,7 @@ export async function GET(
             },
           },
         },
-        orderBy: { timestamp: 'desc' }, // Newest first for activity feed
+        orderBy: { timestamp: 'desc' },
       });
 
       // Send initial events with payment context
@@ -53,7 +47,6 @@ export async function GET(
           status: event.status,
           metadata: event.metadata,
           timestamp: event.timestamp.toISOString(),
-          // Include payment context
           payment: {
             id: event.payment.id,
             amount: event.payment.amount.toString(),
@@ -68,22 +61,22 @@ export async function GET(
         );
       }
 
-      // Poll for new events across all user payments every 500ms
+      // Poll for new events every 500ms
       let lastTimestamp = allEvents.length > 0 ? allEvents[0].timestamp : new Date(0);
 
       const pollInterval = setInterval(async () => {
         try {
-          // Get updated list of user's payments (in case new payments created)
+          // Refresh payment list (in case new payments created)
           const currentPayments = await prisma.payment.findMany({
             where: { userId },
             select: { id: true },
           });
 
+          const currentPaymentIds = currentPayments.map(p => p.id);
+
           const newEvents = await prisma.event.findMany({
             where: {
-              paymentId: {
-                in: currentPayments.map(p => p.id),
-              },
+              paymentId: { in: currentPaymentIds },
               timestamp: { gt: lastTimestamp },
             },
             include: {
@@ -97,7 +90,7 @@ export async function GET(
                 },
               },
             },
-            orderBy: { timestamp: 'asc' }, // For polling, get chronological order
+            orderBy: { timestamp: 'asc' },
           });
 
           for (const event of newEvents) {
@@ -140,7 +133,7 @@ export async function GET(
       'Content-Type': 'text/event-stream',
       'Cache-Control': 'no-cache',
       'Connection': 'keep-alive',
-      'X-Accel-Buffering': 'no', // Disable nginx buffering
+      'X-Accel-Buffering': 'no',
     },
   });
 }
