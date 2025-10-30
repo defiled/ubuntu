@@ -1,0 +1,133 @@
+@tailwind base;
+@tailwind components;
+@tailwind utilities;
+
+@layer base {
+  :root {
+    /* Terminal Dark Theme - Bank of the Future */
+    --background: 220 40% 3%;
+    --foreground: 140 100% 85%;
+    --card: 220 35% 6%;
+    --card-foreground: 140 95% 82%;
+    --popover: 220 38% 5%;
+    --popover-foreground: 140 95% 82%;
+    --primary: 140 100% 50%;
+    --primary-foreground: 220 40% 3%;
+    --secondary: 160 40% 15%;
+    --secondary-foreground: 140 95% 82%;
+    --muted: 220 30% 12%;
+    --muted-foreground: 140 30% 55%;
+    --accent: 160 60% 25%;
+    --accent-foreground: 140 100% 85%;
+    --destructive: 0 85% 55%;
+    --destructive-foreground: 0 0% 98%;
+    --border: 140 40% 20%;
+    --input: 220 30% 12%;
+    --ring: 140 100% 50%;
+    --radius: 0.25rem;
+    --terminal-green: 140 100% 50%;
+    --terminal-green-dim: 140 60% 40%;
+    --terminal-cyan: 180 100% 50%;
+    --terminal-yellow: 60 100% 50%;
+  }
+}
+
+@layer base {
+  * {
+    @apply border-border;
+  }
+
+  body {
+    @apply bg-background text-foreground;
+    font-family: 'Courier New', 'Courier', monospace;
+  }
+
+  /* Terminal-specific styles */
+  .terminal-text {
+    font-family: 'Courier New', 'Courier', monospace;
+    text-shadow: 0 0 5px rgba(0, 255, 65, 0.5);
+  }
+
+  .terminal-glow {
+    box-shadow:
+      0 0 10px rgba(0, 255, 65, 0.1),
+      inset 0 0 20px rgba(0, 255, 65, 0.05);
+  }
+
+  .terminal-border {
+    border: 1px solid hsl(var(--border));
+    box-shadow: 0 0 10px rgba(0, 255, 65, 0.1);
+  }
+
+  /* Scanline effect */
+  .scanlines {
+    position: relative;
+    overflow: hidden;
+  }
+
+  .scanlines::before {
+    content: '';
+    position: absolute;
+    top: 0;
+    left: 0;
+    right: 0;
+    bottom: 0;
+    background: linear-gradient(
+      to bottom,
+      transparent 50%,
+      rgba(0, 255, 65, 0.02) 50%
+    );
+    background-size: 100% 4px;
+    pointer-events: none;
+    z-index: 1;
+  }
+
+  /* Blinking cursor */
+  .cursor-blink::after {
+    content: '▊';
+    animation: blink 1s step-end infinite;
+    color: hsl(var(--terminal-green));
+  }
+
+  @keyframes blink {
+    50% { opacity: 0; }
+  }
+
+  /* Typing animation */
+  .typing {
+    overflow: hidden;
+    border-right: 2px solid hsl(var(--terminal-green));
+    white-space: nowrap;
+    animation: typing 2s steps(40) 1s 1 normal both;
+  }
+
+  @keyframes typing {
+    from { width: 0; }
+    to { width: 100%; }
+  }
+
+  /* Pulse effect for live indicators */
+  .pulse-green {
+    animation: pulse-green 2s cubic-bezier(0.4, 0, 0.6, 1) infinite;
+  }
+
+  @keyframes pulse-green {
+    0%, 100% {
+      opacity: 1;
+    }
+    50% {
+      opacity: 0.5;
+    }
+  }
+
+  /* CRT screen effect */
+  .crt-effect {
+    animation: flicker 0.15s infinite;
+  }
+
+  @keyframes flicker {
+    0% { opacity: 0.98; }
+    50% { opacity: 1; }
+    100% { opacity: 0.98; }
+  }
+}

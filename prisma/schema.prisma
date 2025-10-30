@@ -1,0 +1,126 @@
+// Prisma Schema for Cross-Border Payment API
+
+generator client {
+  provider = "prisma-client-js"
+}
+
+datasource db {
+  provider = "postgresql"
+  url      = env("DATABASE_URL")
+}
+
+model Payment {
+  id                String   @id @default(uuid())
+  userId            String   // Mocked as "user_001" for demo
+  status            PaymentStatus
+
+  // Amounts
+  amount            Decimal  @db.Decimal(12,2)
+  sourceCurrency    String   @default("USD")
+  destCurrency      String   // MXN, NGN, PHP, etc.
+  exchangeRate      Decimal  @db.Decimal(12,6)
+
+  // Quote tracking (optional, for analytics/reference only)
+  quoteId           String?
+  quoteExpiresAt    DateTime?
+
+  // Fee breakdown (immutable after creation)
+  onrampFee         Decimal  @db.Decimal(12,2)
+  corridorFee       Decimal  @db.Decimal(12,2)
+  platformFee       Decimal  @db.Decimal(12,2)
+  networkGas        Decimal  @db.Decimal(12,2) @default(0.05)
+  totalFees         Decimal  @db.Decimal(12,2)
+
+  // Calculated amounts
+  usdcSent          Decimal  @db.Decimal(12,2) // amount - totalFees
+  destAmount        Decimal  @db.Decimal(12,2) // usdcSent * rate
+
+  // Provider tracking
+  onrampTxId        String?
+  offrampTxId       String?
+
+  // Fee handling choice
+  feeHandling       FeeHandling @default(INCLUSIVE)
+
+  // Timestamps
+  createdAt         DateTime @default(now())
+  updatedAt         DateTime @updatedAt
+  completedAt       DateTime?
+
+  // Relations
+  events            Event[]
+
+  @@index([userId, createdAt])
+  @@index([status])
+}
+
+enum PaymentStatus {
+  QUOTED
+  INITIATED
+  CONFIRMED
+  ONRAMP_PENDING
+  ONRAMP_COMPLETED
+  ONRAMP_FAILED
+  OFFRAMP_PENDING
+  OFFRAMP_COMPLETED
+  OFFRAMP_FAILED
+  COMPLETED
+  FAILED
+}
+
+enum FeeHandling {
+  INCLUSIVE  // Fees deducted from amount
+  ADDITIVE   // Fees added on top
+}
+
+model Event {
+  id            String   @id @default(uuid())
+  paymentId     String
+  payment       Payment  @relation(fields: [paymentId], references: [id], onDelete: Cascade)
+
+  eventType     String   // "payment.initiated", "onramp.completed", etc.
+  status        String   // Current status after this event
+
+  // Flexible payload for event-specific data
+  metadata      Json     @default("{}")
+
+  timestamp     DateTime @default(now())
+
+  @@index([paymentId, timestamp])
+  @@index([eventType])
+}
+
+model WebhookDelivery {
+  id            String   @id @default(uuid())
+  paymentId     String
+
+  url           String
+  eventType     String
+  payload       Json
+
+  status        WebhookStatus
+  attempts      Int      @default(0)
+  maxAttempts   Int      @default(3)
+
+  lastAttemptAt DateTime?
+  nextRetryAt   DateTime?
+
+  signature     String   // HMAC signature
+
+  // Response tracking
+  responseStatus Int?
+  responseBody   String?
+
+  createdAt     DateTime @default(now())
+  updatedAt     DateTime @updatedAt
+
+  @@index([paymentId])
+  @@index([status, nextRetryAt])
+}
+
+enum WebhookStatus {
+  PENDING
+  DELIVERED
+  FAILED
+  EXHAUSTED
+}
